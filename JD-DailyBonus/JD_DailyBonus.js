@@ -1,74 +1,45 @@
 /*
-JingDong bonus six in one
-This version requires manual capture of cookies and filling in KEY
+JingDong bonus Seven in one
 
 Description :
-When using for the first time. Need to manually log in to the https://bean.m.jd.com checkin to get cookie. When Surge pops up to get a successful notification, you can disable the HTTP request script.
+When using for the first time. Need to manually log in to the https://bean.m.jd.com checkin to get cookie. If notification gets cookie success, you can use the check in script.
 Due to the validity of cookie, if the script pops up a notification of cookie invalidation in the future, you need to repeat the above steps.
 
 Daily bonus script will be performed every day at 9 am. You can modify the execution time.
 If reprinted, please indicate the source. My TG channel @NobyDa
 
-Update 2020.1.9 15:57 v53
+Update 2020.1.15 20:00 v55
 ~~~~~~~~~~~~~~~~
 Surge 4.0 :
 [Script]
-cron "0 9 * * *" script-path=https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JD-DailyBonus/JD_DailyBonus.js
-http-request https:\/\/api\.m\.jd\.com\/client\.action.*functionId=signBeanIndex max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/Surge/JD-DailyBonus/JD_GetCookie.js
+cron "0 9 * * *" script-path=https://raw.githubusercontent.com/NobyDa/Script/master/JD-DailyBonus/JD_DailyBonus.js
 
-MITM = api.m.jd.com
+# Get JingDong cookie.
+http-request https:\/\/api\.m\.jd\.com\/client\.action.*functionId=signBean(Index|GroupStageIndex) max-size=0,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/JD-DailyBonus/JD_DailyBonus.js
 ~~~~~~~~~~~~~~~~
 QX 1.0.5 :
 [task_local]
-0 9 * * * JD_DailyBonus_QX.js
+0 9 * * * JD_DailyBonus.js
+
+[rewrite_local]
+# Get JingDong cookie. QX 1.0.5(188+):
+https:\/\/api\.m\.jd\.com\/client\.action.*functionId=signBean(Index|GroupStageIndex) url script-request-header JD_DailyBonus.js
+~~~~~~~~~~~~~~~~
+QX or Surge MITM = api.m.jd.com
 ~~~~~~~~~~~~~~~~
 */
-const log = true;
-const KEY = '---';
 
-const $nobyda = (() => {
-    const isSurge = typeof $httpClient != "undefined"
-    const isQuanX = typeof $task != "undefined"
-    const notify = (title, subtitle, message) => {
-        if (isQuanX) $notify(title, subtitle, message)
-        if (isSurge) $notification.post(title, subtitle, message)
-    }
-    const write = (value, key) => {
-        if (isQuanX) return $prefs.setValueForKey(value, key)
-        if (isSurge) return $persistentStore.write(value, key)
-    }
-    const read = (key) => {
-        if (isQuanX) return $prefs.valueForKey(key)
-        if (isSurge) return $persistentStore.read(key)
-    }
-    const get = (options, callback) => {
-        if (isQuanX) {
-            if (typeof options == "string") options = { url: options }
-            options["method"] = "GET"
-            $task.fetch(options).then(response => {
-                response["status"] = response.statusCode
-                callback(null, response, response.body)
-            }, reason => callback(reason.error, null, null))
-        }
-        if (isSurge) $httpClient.get(options, callback)
-    }
-    const post = (options, callback) => {
-        if (isQuanX) {
-            if (typeof options == "string") options = { url: options }
-            options["method"] = "POST"
-            $task.fetch(options).then(response => {
-                response["status"] = response.statusCode
-                callback(null, response, response.body)
-            }, reason => callback(reason.error, null, null))
-        }
-        if (isSurge) $httpClient.post(options, callback)
-    }
-    const end = () => {
-        if (isQuanX) return ""
-        if (isSurge) return $done()
-    }
-    return { isQuanX, isSurge, notify, write, read, get, post, end }
-})();
+const log = true;
+const $nobyda = nobyda();
+const KEY = $nobyda.read("CookieJD");
+
+if ($nobyda.isRequest) {
+  GetCookie()
+  $nobyda.end()
+} else {
+  JingDongBean()
+  $nobyda.end()
+}
 
 function JingDongBean() {
   const JDBUrl = {
@@ -397,41 +368,41 @@ function JRDoubleSign(JDBean, JDturn, JRBean, JRSteel, JDShake) {
     $nobyda.post(JRDSUrl, function(error, response, data) {
       if (error) {
         const JRDSign = "京东金融-双签: 签到接口请求失败 ‼️‼️" + "\n"
-        notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+        JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
       } else {
         const cc = JSON.parse(data)
         if (data.match(/京豆X/)) {
           if (log) console.log("京东金融-双签签到成功response: \n" + data)
           if (cc.resultData.data.businessData.businessData.awardListVo[0].count) {
             const JRDSign = "京东金融-双签: 签到成功, 明细: " + cc.resultData.data.businessData.businessData.awardListVo[0].count + "京豆 🐶" + "\n"
-            notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+            JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
           } else {
             const JRDSign = "京东金融-双签: 签到成功, 明细: 显示接口待更新 ⚠️" + "\n"
-            notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+            JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
           }
         } else {
           if (log) console.log("京东金融-双签签到失败response: \n" + data)
           if (data.match(/已领取/)) {
             const JRDSign = "京东金融-双签: 签到失败, 原因: 已签过 ⚠️" + "\n"
-            notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+            JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
           } else {
             if (data.match(/不存在/)) {
               const JRDSign = "京东金融-双签: 签到失败, 原因: 活动已结束 ⚠️" + "\n"
-              notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+              JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
             } else {
               if (data.match(/未在/)) {
                 const JRDSign = "京东金融-双签: 签到失败, 原因: 未在京东签到 ⚠️" + "\n"
-                notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+                JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
               } else {
                 if (data.match(/(\"resultCode\":3|请先登录)/)) {
                   const JRDSign = "京东金融-双签: 签到失败, 原因: Cookie失效‼️" + "\n"
-                  notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+                  JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
                 } else if (cc.resultData.data.businessData.businessCode == "000sq" && cc.resultData.data.businessData.businessMsg == "成功") {
                   const JRDSign = "京东金融-双签: 签到成功, 明细: 无奖励 🐶" + "\n"
-                  notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+                  JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
                 } else {
                   const JRDSign = "京东金融-双签: 需修正‼️日志发至TG:@NobyDa_bot" + "\n"
-                  notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+                  JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
                 }
               }
             }
@@ -442,9 +413,141 @@ function JRDoubleSign(JDBean, JDturn, JRBean, JRSteel, JDShake) {
   }, 500)
 }
 
-function notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign) {
-  $nobyda.notify(JRDSign, JDBean, JRBean + JDturn + JRSteel + JDShake)
-  $nobyda.end()
+//Event end time: Jan. 31
+function JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign) {
+  const JRLUrl = {
+    url: 'https://lottery.jd.com/award/lottery?actKey=jYNV3i',
+    headers: {
+      Cookie: KEY,
+    }
+  };
+
+  $nobyda.get(JRLUrl, function(error, response, data) {
+    if (error) {
+      const JRLottery = "\n" + "京东金融-抽签: 签到接口请求失败 ‼️‼️"
+      notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+    } else {
+      const cc = JSON.parse(data)
+      if (data.match(/(\"2001\"|未登录)/)) {
+        if (log) console.log("Cookie error response: \n" + data)
+        const JRLottery = "\n" + "京东抽签-失败: 签到失败, 原因: Cookie失效"
+        notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+      } else {
+        if (data.match(/(\"3001\"|活动不存在)/)) {
+          const JRLottery = "\n" + "京东金融-抽签: 签到失败, 原因: 活动已结束 ⚠️"
+          notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+        } else {
+          if (cc.code == "0000") {
+            if (log) console.log("京东金融-抽签签到成功response: \n" + data)
+              if (data.match(/京东钢镚/)) {
+                if (cc.data.volumn) {
+                  const JRLottery = "\n" + "京东金融-抽签: 签到成功, 明细: " + cc.data.volumn + "钢镚 💰"
+                  notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+                } else {
+                  const JRLottery = "\n" + "京东金融-抽签: 签到成功, 明细: 显示接口待更新 ⚠️"
+                  notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+                }
+              } else {
+                if (log) console.log("京东金融-抽签签到成功 其他奖励: \n" + data)
+                setTimeout(function() {
+                  JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+                }, 200)
+              }
+          } else {
+            if (log) console.log("京东金融-抽签签到失败response: \n" + data)
+            if (data.match(/\"remainTimes\":(2|1)/) && cc.code == "1000") {
+              setTimeout(function() {
+                JingRongLottery(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign)
+              }, 200)
+            } else if (data.match(/\"remainTimes\":0/) && cc.code == "1000") {
+              const JRLottery = "\n" + "京东金融-抽签: 运气稍差, 状态: 无钢镚 🐶"
+              notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+            } else if (data.match(/(\"2003\"|机会用完)/)) {
+              const JRLottery = "\n" + "京东金融-抽签: 签到失败, 原因: 无机会 ⚠️"
+              notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+            } else {
+              const JRLottery = "\n" + "京东金融-抽签: 签到失败, 原因: 未知 ⚠️"
+              notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery)
+            }
+          }
+        }
+      }
+    }
+  })
 }
 
-JingDongBean()
+function notice(JDBean, JDturn, JRBean, JRSteel, JDShake, JRDSign, JRLottery) {
+  $nobyda.notify(JRDSign, JDBean, JRBean + JDturn + JRSteel + JDShake + JRLottery)
+}
+
+function GetCookie() {
+  var CookieName = "京东";
+  if ($request.headers) {
+    var CookieKey = "CookieJD";
+    var CookieValue = $request.headers['Cookie'];
+    if ($nobyda.read(CookieKey) != (undefined || null)) {
+      if ($nobyda.read(CookieKey) != CookieValue) {
+        var cookie = $nobyda.write(CookieValue, CookieKey);
+        if (!cookie) {
+          $nobyda.notify("更新" + CookieName + "Cookie失败‼️", "", "");
+        } else {
+          $nobyda.notify("更新" + CookieName + "Cookie成功 🎉", "", "");
+        }
+      }
+    } else {
+      var cookie = $nobyda.write(CookieValue, CookieKey);
+      if (!cookie) {
+        $nobyda.notify("首次写入" + CookieName + "Cookie失败‼️", "", "");
+      } else {
+        $nobyda.notify("首次写入" + CookieName + "Cookie成功 🎉", "", "");
+      }
+    }
+  } else {
+    $nobyda.notify("写入" + CookieName + "Cookie失败‼️", "", "配置错误, 无法读取请求头, ");
+  }
+}
+
+function nobyda() {
+    const isRequest = typeof $request != "undefined"
+    const isSurge = typeof $httpClient != "undefined"
+    const isQuanX = typeof $task != "undefined"
+    const notify = (title, subtitle, message) => {
+        if (isQuanX) $notify(title, subtitle, message)
+        if (isSurge) $notification.post(title, subtitle, message)
+    }
+    const write = (value, key) => {
+        if (isQuanX) return $prefs.setValueForKey(value, key)
+        if (isSurge) return $persistentStore.write(value, key)
+    }
+    const read = (key) => {
+        if (isQuanX) return $prefs.valueForKey(key)
+        if (isSurge) return $persistentStore.read(key)
+    }
+    const get = (options, callback) => {
+        if (isQuanX) {
+            if (typeof options == "string") options = { url: options }
+            options["method"] = "GET"
+            $task.fetch(options).then(response => {
+                response["status"] = response.statusCode
+                callback(null, response, response.body)
+            }, reason => callback(reason.error, null, null))
+        }
+        if (isSurge) $httpClient.get(options, callback)
+    }
+    const post = (options, callback) => {
+        if (isQuanX) {
+            if (typeof options == "string") options = { url: options }
+            options["method"] = "POST"
+            $task.fetch(options).then(response => {
+                response["status"] = response.statusCode
+                callback(null, response, response.body)
+            }, reason => callback(reason.error, null, null))
+        }
+        if (isSurge) $httpClient.post(options, callback)
+    }
+    const end = () => {
+        if (isQuanX) isRequest ? $done({}) : ""
+        if (isSurge) isRequest ? $done({}) : $done()
+    }
+    return { isRequest, isQuanX, isSurge, notify, write, read, get, post, end }
+};
